@@ -134,3 +134,123 @@ function listSongs() {
     console.log("+ / -  Volume");
     console.log("Q      Quit");
 }
+// Stop current music process
+function stopSong() {
+    if (musicProcess) {
+        musicProcess.kill("SIGTERM");
+        musicProcess = undefined;
+    }
+
+    if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = undefined;
+    }
+
+    isPaused = false;
+    timeElapsed = 0;
+}
+
+
+// Track song progress
+function startProgressTracking() {
+    if (progressTimer) {
+        clearInterval(progressTimer);
+    }
+
+    progressTimer = setInterval(() => {
+        if (musicProcess && !isPaused) {
+            timeElapsed += 0.1;
+
+            if (timeElapsed > totalDuration) {
+                timeElapsed = totalDuration;
+            }
+
+            listSongs();
+        }
+    }, 100);
+}
+
+
+// Play selected song
+async function playSong() {
+    if (allSongs.length === 0) {
+        return;
+    }
+
+    stopSong();
+
+    const songPath = path.join(
+        songDir,
+        allSongs[cursor]
+    );
+
+    try {
+        totalDuration = await getSongDuration(songPath);
+    } catch (error) {
+        totalDuration = 0;
+    }
+
+    // afplay is already available on macOS
+    musicProcess = spawn("afplay", [songPath]);
+
+    isPaused = false;
+
+    // Handle afplay errors
+    musicProcess.on("error", (error) => {
+        console.log("\nCould not play song.");
+        console.log(error.message);
+    });
+
+    // Handle song/process ending
+    musicProcess.on("close", () => {
+        musicProcess = undefined;
+
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = undefined;
+        }
+
+        isPaused = false;
+    });
+
+    startProgressTracking();
+    listSongs();
+}
+
+
+// Play next song
+function nextSong() {
+    cursor = (cursor + 1) % allSongs.length;
+    playSong();
+}
+
+
+// Play previous song
+function previousSong() {
+    cursor =
+        (cursor - 1 + allSongs.length) %
+        allSongs.length;
+
+    playSong();
+}
+
+
+// Pause / Resume
+function togglePause() {
+    if (!musicProcess) {
+        return;
+    }
+
+    if (isPaused) {
+        // Resume process
+        musicProcess.kill("SIGCONT");
+        isPaused = false;
+    } else {
+        // Pause process
+        musicProcess.kill("SIGSTOP");
+        isPaused = true;
+    }
+
+    listSongs();
+}
+
