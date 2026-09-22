@@ -254,3 +254,168 @@ function togglePause() {
     listSongs();
 }
 
+// Change system volume
+function changeVolume(amount) {
+    volume += amount;
+
+    volume = Math.max(
+        0,
+        Math.min(100, volume)
+    );
+
+    exec(
+        `osascript -e "set volume output volume ${volume}"`,
+        () => {}
+    );
+
+    listSongs();
+}
+
+
+// Exit application
+function exitPlayer() {
+    stopSong();
+
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+
+    process.stdout.write("\x1B[2J");
+    process.stdout.write("\x1B[H");
+
+    console.log(
+        "Thanks for using Terminal Music Player!"
+    );
+
+    process.exit();
+}
+
+
+// Handle keyboard input
+function handleInput(data) {
+
+    // Ctrl + C
+    if (data[0] === 3) {
+        exitPlayer();
+        return;
+    }
+
+
+    // Q
+    if (data[0] === 113 || data[0] === 81) {
+        exitPlayer();
+        return;
+    }
+
+
+    // Arrow keys
+    if (
+        data[0] === 27 &&
+        data[1] === 91
+    ) {
+
+        // Up
+        if (data[2] === 65) {
+            cursor--;
+
+            if (cursor < 0) {
+                cursor = allSongs.length - 1;
+            }
+
+            listSongs();
+        }
+
+        // Down
+        if (data[2] === 66) {
+            cursor++;
+
+            if (cursor >= allSongs.length) {
+                cursor = 0;
+            }
+
+            listSongs();
+        }
+
+        return;
+    }
+
+
+    // Enter
+    if (data[0] === 13) {
+        playSong();
+        return;
+    }
+
+
+    // P - Pause / Resume
+    if (
+        data[0] === 112 ||
+        data[0] === 80
+    ) {
+        togglePause();
+        return;
+    }
+
+
+    // N - Next
+    if (
+        data[0] === 110 ||
+        data[0] === 78
+    ) {
+        nextSong();
+        return;
+    }
+
+
+    // B - Previous
+    if (
+        data[0] === 98 ||
+        data[0] === 66
+    ) {
+        previousSong();
+        return;
+    }
+
+
+    // + - Volume Up
+    if (
+        data[0] === 43 ||
+        data[0] === 61
+    ) {
+        changeVolume(10);
+        return;
+    }
+
+
+    // - - Volume Down
+    if (data[0] === 45) {
+        changeVolume(-10);
+        return;
+    }
+}
+
+
+// Start player
+function startPlayer() {
+    loadSongs();
+
+    if (allSongs.length === 0) {
+        console.log(
+            "No songs found in the songs folder."
+        );
+        return;
+    }
+
+    listSongs();
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+
+    process.stdin.on(
+        "data",
+        handleInput
+    );
+}
+
+
+startPlayer();
+
